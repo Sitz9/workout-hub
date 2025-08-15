@@ -29,7 +29,13 @@
     .maxwrap { max-width: 1560px; }
     .drawer { position: fixed; inset:0; background: rgba(0,0,0,.5); display:none; z-index:60; }
     .drawer.open { display:block; }
-    .drawer-panel { position:absolute; right:0; top:0; bottom:0; width: 340px; max-width: 90vw; background:var(--card); border-left:1px solid var(--border); padding:1rem; padding-top: calc(1rem + env(safe-area-inset-top)); overflow:auto; }
+    .drawer-panel { position:absolute; right:0; top:0; bottom:0; width: 360px; max-width: 90vw; background:var(--card); border-left:1px solid var(--border); padding:1rem; padding-top: calc(1rem + env(safe-area-inset-top)); overflow:auto; }
+    /* Calendar styles */
+    .cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:.5rem; }
+    .cal-cell { border:1px solid var(--border); border-radius:.75rem; padding:.5rem; min-height:92px; background:var(--card); cursor:pointer; }
+    .cal-cell:hover { outline:2px solid #3b82f6; outline-offset:0; }
+    .cal-muted { color: var(--muted); opacity: .7; }
+    .badge { font-size:.75rem; padding:.125rem .5rem; border-radius:.75rem; border:1px solid var(--border); display:inline-block; }
   </style>
 </head>
 <body class="min-h-full safe">
@@ -45,6 +51,7 @@
         <label class="relative">
           <input id="search" placeholder="Suche Übungen/Equipment..." class="pl-3 pr-3 py-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] w-56 md:w-80 focus:outline-none focus:ring-2 focus:ring-black" />
         </label>
+        <button id="btnCalendar" class="btn">📅 Kalender</button>
         <button id="btnExport" class="btn">⬇️ Export</button>
         <label class="btn cursor-pointer">⬆️ Import
           <input id="fileImport" type="file" accept="application/json" class="hidden">
@@ -164,6 +171,63 @@
     </form>
   </dialog>
 
+  <!-- Modal: Calendar -->
+  <dialog id="calModal" class="w-full max-w-4xl rounded-2xl p-0 border border-[color:var(--border)] shadow-xl bg-[color:var(--card)] text-[color:var(--text)]">
+    <div class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button id="calPrev" class="btn">⬅️</button>
+          <h3 id="calTitle" class="font-semibold text-lg">Kalender</h3>
+          <button id="calNext" class="btn">➡️</button>
+        </div>
+        <button id="calClose" class="btn">✖️</button>
+      </div>
+      <div class="grid grid-cols-7 text-center text-xs text-[color:var(--muted)]">
+        <div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div><div>So</div>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div class="text-xs text-[color:var(--muted)]">Tipp: Klick auf einen Tag, um einen Eintrag zu erstellen/zu bearbeiten.</div>
+    </div>
+  </dialog>
+
+  <!-- Modal: Log Entry -->
+  <dialog id="logModal" class="w-full max-w-2xl rounded-2xl p-0 border border-[color:var(--border)] shadow-xl bg-[color:var(--card)] text-[color:var(--text)]">
+    <form method="dialog" class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 id="logTitle" class="font-semibold">Training eintragen</h3>
+        <button id="logClose" class="btn">✖️</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm">Datum
+            <input id="logDate" type="date" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
+          </label>
+          <label class="text-sm block mt-3">Dauer (Minuten)
+            <input id="logDuration" type="number" min="0" step="1" placeholder="z. B. 30" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
+          </label>
+          <label class="text-sm block mt-3">Kalorien (optional)
+            <input id="logCalories" type="number" min="0" step="1" placeholder="z. B. 250" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
+          </label>
+        </div>
+        <div>
+          <p class="text-sm mb-1">Übungen ausgewählt</p>
+          <div id="logExerciseList" class="max-h-56 overflow-auto border border-[color:var(--border)] rounded-xl p-2">
+            <!-- checkboxes injected -->
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-sm mb-1">Bisherige Einträge für den Tag</p>
+        <div id="logExisting" class="space-y-2 text-sm"></div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button id="logSave" class="btn btn-primary" value="default">💾 Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
   <footer class="maxwrap mx-auto px-4 py-8 text-center text-xs text-[color:var(--muted)]">
     ⚡️ Offlinefähig & installierbar. Daten bleiben lokal (localStorage). – Für Markus
   </footer>
@@ -180,6 +244,7 @@
     // ----- Data & Storage -----
     const LS_EX = 'markus_workout_exercises_v1';
     const LS_RT = 'markus_workout_routines_v1';
+    const LS_LOG = 'markus_workout_log_v1';
 
     const DEFAULT_EXERCISES = [
       { id:'squat', name:'Kniebeuge (Bodyweight)', groups:['Beine','Core'], difficulty:'Einsteiger', equipment:'Keine', videoUrl:'', cues:['Fersen am Boden','Knie folgen den Zehen','Brust stolz'], steps:['Stand schulterbreit, Füße leicht nach außen.','Hüfte nach hinten, dann Knie beugen, bis Oberschenkel mind. parallel.','Druck über die Fersen nach oben, Gesäß anspannen.'] },
@@ -208,12 +273,13 @@
     ];
 
     function load(key, fallback) {
-      try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
+      try { const v = JSON.parse(localStorage.getItem(key)); return (key===LS_LOG ? (v||{}) : (Array.isArray(v) ? v : fallback)); } catch { return key===LS_LOG ? {} : fallback; }
     }
     function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
     let exercises = load(LS_EX, DEFAULT_EXERCISES);
     let routines  = load(LS_RT, DEFAULT_ROUTINES);
+    let logs = load(LS_LOG, {}); // { 'YYYY-MM-DD': [ {exercises:[], duration: 30, calories: 200, ts: 1700000000} ] }
 
     // ----- UI Refs -----
     const elSearch = document.getElementById('search');
@@ -226,6 +292,23 @@
     const elDrawer = document.getElementById('drawer');
     const elCloseDrawer = document.getElementById('btnCloseDrawer');
     const elResetFilters = document.getElementById('btnResetFilters');
+    const elBtnCalendar = document.getElementById('btnCalendar');
+    const calModal = document.getElementById('calModal');
+    const calPrev = document.getElementById('calPrev');
+    const calNext = document.getElementById('calNext');
+    const calClose = document.getElementById('calClose');
+    const calTitle = document.getElementById('calTitle');
+    const calGrid = document.getElementById('calGrid');
+
+    const logModal = document.getElementById('logModal');
+    const logClose = document.getElementById('logClose');
+    const logDate = document.getElementById('logDate');
+    const logDuration = document.getElementById('logDuration');
+    const logCalories = document.getElementById('logCalories');
+    const logExerciseList = document.getElementById('logExerciseList');
+    const logExisting = document.getElementById('logExisting');
+    const logSave = document.getElementById('logSave');
+    const logTitle = document.getElementById('logTitle');
 
     const groupOptions = ['Beine','Arme','Rücken','Brust','Core'];
     const diffOptions  = ['Einsteiger','Fortgeschritten','Profi'];
@@ -251,6 +334,7 @@
       diffOptions.forEach(d => dRoot.appendChild(chip(d, filters.difficulty.has(d), () => { toggleFilter('difficulty', d); })));
       equipOptions().forEach(e => eRoot.appendChild(chip(e, filters.equipment.has(e), () => { toggleFilter('equipment', e); })));
     }
+
     function toggleFilter(key, val) {
       const set = filters[key];
       set.has(val) ? set.delete(val) : set.add(val);
@@ -487,12 +571,12 @@
         if (exercises.some(x => x.id === id)) { alert('Diese Übung existiert bereits.'); return; }
         exercises.push({ id, ...payload });
       }
-      save(LS_EX, exercises); renderExercises(); renderFilters(); modal.close();
+      save(LS_EX, exercises); renderExercises(); renderFilters(); renderExerciseCheckboxes(); modal.close();
     };
 
     // ----- Import/Export -----
     elBtnExport.onclick = () => {
-      const payload = { exercises, routines };
+      const payload = { exercises, routines, log: logs };
       const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = 'markus_workouts.json'; a.click(); URL.revokeObjectURL(url);
@@ -503,10 +587,11 @@
       reader.onload = () => {
         try {
           const data = JSON.parse(reader.result);
-          if (Array.isArray(data.exercises) && Array.isArray(data.routines)) {
-            exercises = data.exercises; routines = data.routines; save(LS_EX, exercises); save(LS_RT, routines);
-            renderExercises(); renderRoutines(); renderFilters();
-          } else alert('Ungültige Datei');
+          if (Array.isArray(data.exercises)) exercises = data.exercises;
+          if (Array.isArray(data.routines)) routines = data.routines;
+          if (data.log && typeof data.log === 'object') logs = data.log;
+          save(LS_EX, exercises); save(LS_RT, routines); save(LS_LOG, logs);
+          renderExercises(); renderRoutines(); renderFilters(); renderExerciseCheckboxes();
         } catch { alert('Konnte JSON nicht lesen'); }
       };
       reader.readAsText(f);
@@ -522,8 +607,111 @@
     elDrawer.addEventListener('click', (e) => { if (e.target === elDrawer) elDrawer.classList.remove('open'); });
     elResetFilters.onclick = resetFilters;
 
+    // ----- Calendar -----
+    let calYear, calMonth; // month: 0-11
+    function openCalendar(date = new Date()){
+      calYear = date.getFullYear();
+      calMonth = date.getMonth();
+      renderCalendar();
+      calModal.showModal();
+    }
+    function renderCalendar(){
+      const first = new Date(calYear, calMonth, 1);
+      const startDay = (first.getDay() + 6) % 7; // Mo=0
+      const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+      const prevDays = new Date(calYear, calMonth, 0).getDate();
+      calTitle.textContent = first.toLocaleDateString('de-DE', { month:'long', year:'numeric' });
+      calGrid.innerHTML = '';
+
+      // create 42 cells (6 rows * 7 cols)
+      for (let i=0; i<42; i++){
+        const cell = document.createElement('div'); cell.className = 'cal-cell';
+        let dayNum, thisMonth = true, date;
+        if (i < startDay) { dayNum = prevDays - startDay + i + 1; thisMonth = false; date = new Date(calYear, calMonth-1, dayNum); }
+        else if (i >= startDay + daysInMonth) { dayNum = i - startDay - daysInMonth + 1; thisMonth = false; date = new Date(calYear, calMonth+1, dayNum); }
+        else { dayNum = i - startDay + 1; date = new Date(calYear, calMonth, dayNum); }
+        const ds = date.toISOString().slice(0,10);
+        const header = document.createElement('div'); header.className = 'flex items-center justify-between mb-1';
+        const n = document.createElement('div'); n.textContent = dayNum; n.className = 'font-semibold ' + (thisMonth ? '' : 'cal-muted');
+        header.appendChild(n);
+        if (logs[ds] && logs[ds].length){
+          const sumMin = logs[ds].reduce((a,b)=>a+(b.duration||0),0);
+          const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = sumMin + 'm';
+          header.appendChild(badge);
+        }
+        cell.appendChild(header);
+        // small list of exercise initials
+        if (logs[ds] && logs[ds].length){
+          const ul = document.createElement('div'); ul.className = 'text-xs text-[color:var(--muted)] line-clamp-2';
+          const names = new Set();
+          logs[ds].forEach(entry => (entry.exercises||[]).forEach(id => {
+            const ex = exercises.find(e => e.id === id);
+            if (ex) names.add(ex.name.split(' ')[0]);
+          }));
+          ul.textContent = Array.from(names).slice(0,3).join(', ');
+          cell.appendChild(ul);
+        }
+        cell.onclick = () => openLogForDate(ds);
+        calGrid.appendChild(cell);
+      }
+    }
+    function openLogForDate(ds){
+      logTitle.textContent = 'Training am ' + ds.replace(/-/g,'.');
+      logDate.value = ds;
+      logDuration.value = '';
+      logCalories.value = '';
+      renderExerciseCheckboxes();
+      renderExistingForDate(ds);
+      logModal.showModal();
+    }
+    function renderExerciseCheckboxes(){
+      logExerciseList.innerHTML='';
+      exercises.forEach(e => {
+        const id = 'chk_' + e.id;
+        const row = document.createElement('label'); row.className='flex items-center gap-2 py-1 cursor-pointer';
+        row.innerHTML = `<input type="checkbox" id="${id}"><span>${e.name}</span>`;
+        logExerciseList.appendChild(row);
+      });
+    }
+    function renderExistingForDate(ds){
+      logExisting.innerHTML = '';
+      const arr = logs[ds] || [];
+      if (!arr.length) { logExisting.textContent = 'Noch keine Einträge.'; return; }
+      arr.forEach((entry, idx) => {
+        const names = (entry.exercises||[]).map(id => exercises.find(e=>e.id===id)?.name || id).join(', ');
+        const wrap = document.createElement('div'); wrap.className = 'flex items-center justify-between p-2 rounded-lg border border-[color:var(--border)]';
+        wrap.innerHTML = `<div><strong>${entry.duration||0} Min</strong> · ${names}${entry.calories ? ' · ' + entry.calories + ' kcal' : ''}</div>`;
+        const del = document.createElement('button'); del.className='btn btn-danger'; del.textContent='Löschen';
+        del.onclick = () => { if (!confirm('Eintrag löschen?')) return; logs[ds].splice(idx,1); if (!logs[ds].length) delete logs[ds]; save(LS_LOG, logs); renderExistingForDate(ds); renderCalendar(); };
+        wrap.appendChild(del);
+        logExisting.appendChild(wrap);
+      });
+    }
+
+    elBtnCalendar.onclick = () => openCalendar(new Date());
+    calPrev.onclick = () => { calMonth -= 1; if (calMonth < 0) { calMonth = 11; calYear -= 1; } renderCalendar(); };
+    calNext.onclick = () => { calMonth += 1; if (calMonth > 11) { calMonth = 0; calYear += 1; } renderCalendar(); };
+    calClose.onclick = () => calModal.close();
+    logClose.onclick = (e) => { e.preventDefault(); logModal.close(); };
+
+    logSave.onclick = (e) => {
+      e.preventDefault();
+      const ds = logDate.value;
+      if (!ds) { alert('Bitte Datum wählen'); return; }
+      const duration = parseInt(logDuration.value || '0', 10);
+      const calories = logCalories.value ? parseInt(logCalories.value, 10) : null;
+      const selected = Array.from(logExerciseList.querySelectorAll('input[type=checkbox]:checked')).map(ch => ch.id.replace('chk_',''));
+      if (!selected.length && duration===0) { alert('Wähle mindestens eine Übung oder gib eine Dauer an.'); return; }
+      const arr = logs[ds] || (logs[ds] = []);
+      arr.push({ exercises: selected, duration, calories, ts: Date.now() });
+      save(LS_LOG, logs);
+      renderExistingForDate(ds); renderCalendar();
+      logDuration.value=''; logCalories.value='';
+      logExerciseList.querySelectorAll('input').forEach(ch => ch.checked=false);
+    };
+
     // ----- Init -----
-    renderExercises(); renderRoutines(); renderFilters();
+    renderExercises(); renderRoutines(); renderFilters(); renderExerciseCheckboxes();
 
     // ----- PWA: Service Worker -----
     if ('serviceWorker' in navigator) {
