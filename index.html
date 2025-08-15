@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-theme="light" data-layout="normal">
+<html lang="de" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -17,36 +17,36 @@
     [data-theme="light"] { --bg:#fafafa; --card:#fff; --border:#e5e7eb; --text:#111; --muted:#6b7280;}
     html, body { height:100%; background:var(--bg); color:var(--text); }
     .card { border-radius: 1.25rem; border:1px solid var(--border); background:var(--card); box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:1rem; padding:.5rem 1rem; font-weight:600; border:1px solid var(--border); white-space:nowrap; flex:0 0 auto; }
-    .btn:hover { background:rgba(0,0,0,.03); }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:1rem; padding:.6rem 1rem; font-weight:600; border:1px solid var(--border); white-space:nowrap; }
+    .btn:hover { background:rgba(255,255,255,.06); }
     .btn-primary { background:#111; color:#fff; border-color:#111; }
     .btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
-    .chip { padding:.375rem .75rem; border-radius:999px; border:1px solid var(--border); font-size:.875rem; }
+    .chip { padding:.4rem .8rem; border-radius:999px; border:1px solid var(--border); font-size:.875rem; }
     .chip.active { background:#111; color:#fff; border-color:#111; }
     .aspect-video { position: relative; padding-bottom:56.25%; height:0; }
     .aspect-video iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; border-radius:.75rem; }
     .safe { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
-    .container { margin-left:auto; margin-right:auto; padding-left:1rem; padding-right:1rem; }
-    [data-layout="normal"] .container { max-width: 1280px; }
-    [data-layout="wide"] .container { max-width: 100%; }
-    .grid-app { display:grid; grid-template-columns: 1fr; gap:1.5rem; }
-    @media (min-width:1024px){ .grid-app { grid-template-columns: 3fr 5fr 3fr; } }
-    @media (min-width:1400px) and (min-aspect-ratio: 16/9) {
-      [data-layout="wide"] .grid-app { grid-template-columns: 2.5fr 5fr 2.5fr; }
-    }
+    /* Wider, more readable tiles */
+    .exercise-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:1rem; }
+    @media (max-width: 420px){ .exercise-grid { grid-template-columns: 1fr; } }
+    .drawer { position: fixed; inset: 0 0 0 auto; width: min(420px, 90vw); background: var(--card); border-left:1px solid var(--border); transform: translateX(100%); transition: transform .25s ease; z-index: 60; }
+    .drawer.open { transform: translateX(0); }
+    .backdrop { position: fixed; inset:0; background: rgba(0,0,0,.4); backdrop-filter: blur(2px); z-index: 50; display:none; }
+    .backdrop.open { display:block; }
   </style>
 </head>
 <body class="min-h-full safe">
-  <header class="sticky top-0 z-30 backdrop-blur bg-[color:var(--card)]/90 border-b border-[color:var(--border)]">
-    <div class="container py-3 flex flex-wrap gap-2 items-center justify-between">
+  <header class="sticky top-0 z-40 backdrop-blur bg-[color:var(--card)]/90 border-b border-[color:var(--border)]">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap gap-2 items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
         <span class="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-black text-white">🏋️</span>
-        <h1 class="text-xl md:text-2xl font-bold truncate">Markus' Workout Hub</h1>
-        <span class="hidden sm:inline text-xs ml-2 rounded-full bg-gray-100/50 px-2 py-1">Videos · Timer · Routinen</span>
+        <h1 class="text-2xl font-bold truncate">Markus' Workout Hub</h1>
+        <span class="hidden md:inline text-xs ml-2 rounded-full bg-white/10 px-2 py-1">Videos · Timer · Routinen</span>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <label class="relative order-2 sm:order-none">
-          <input id="search" placeholder="Suche Übungen/Equipment..." class="pl-3 pr-3 py-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] w-56 md:w-72 focus:outline-none focus:ring-2 focus:ring-black" />
+        <button id="btnFilterOpen" class="btn" title="Filter"><span>🔎</span> Filter</button>
+        <label class="relative">
+          <input id="search" placeholder="Suche Übungen/Equipment..." class="pl-3 pr-3 py-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] w-64 md:w-96 focus:outline-none focus:ring-2 focus:ring-black" />
         </label>
         <button id="btnExport" class="btn">⬇️ Export</button>
         <label class="btn cursor-pointer">⬆️ Import
@@ -54,71 +54,80 @@
         </label>
         <button id="btnAdd" class="btn btn-primary">＋ Übung</button>
         <button id="btnTheme" class="btn" title="Dark/Light">🌓</button>
-        <button id="btnLayout" class="btn" title="Breitmodus umschalten">↔️ Breiter Modus</button>
       </div>
     </div>
   </header>
 
-  <main class="container py-6">
-    <div class="grid-app">
-      <section class="card p-4">
+  <main class="max-w-[1600px] mx-auto px-4 py-6 grid gap-6 lg:grid-cols-12">
+    <!-- Übungen -->
+    <section class="lg:col-span-8">
+      <div class="flex items-end justify-between mb-2">
+        <h2 class="font-semibold text-xl">Übungen <span id="exercise-count" class="text-[color:var(--muted)] text-base"></span></h2>
+        <small class="text-[color:var(--muted)]">Tipp: Filter öffnen über den Button oben.</small>
+      </div>
+      <div id="exercise-list" class="exercise-grid"></div>
+    </section>
+
+    <!-- Routinen & Timer (rechts) -->
+    <section class="lg:col-span-4 space-y-4">
+      <div class="card p-4">
         <div class="flex items-center gap-2 mb-3">
-          <span>🧰</span><h2 class="font-semibold">Filter</h2>
+          <span>🗂️</span><h2 class="font-semibold">Schnell-Routinen</h2>
         </div>
-        <div class="space-y-4">
-          <div>
-            <p class="text-sm mb-2 text-[color:var(--muted)]">Muskelgruppen</p>
-            <div id="filter-groups" class="flex flex-wrap gap-2"></div>
-          </div>
-          <div>
-            <p class="text-sm mb-2 text-[color:var(--muted)]">Schwierigkeit</p>
-            <div id="filter-diff" class="flex flex-wrap gap-2"></div>
-          </div>
-          <div>
-            <p class="text-sm mb-2 text-[color:var(--muted)]">Equipment</p>
-            <div id="filter-equip" class="flex flex-wrap gap-2"></div>
-          </div>
+        <div id="routine-list" class="space-y-2"></div>
+      </div>
+
+      <div class="card p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span>⏱️</span><h2 class="font-semibold">Timer</h2>
         </div>
-      </section>
-
-      <section class="space-y-3">
-        <h2 class="font-semibold">Übungen <span id="exercise-count" class="text-[color:var(--muted)]"></span></h2>
-        <div id="exercise-list" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4"></div>
-      </section>
-
-      <section class="space-y-4">
-        <div class="card p-4">
-          <div class="flex items-center gap-2 mb-3">
-            <span>🗂️</span><h2 class="font-semibold">Schnell-Routinen</h2>
-          </div>
-          <div id="routine-list" class="space-y-2"></div>
-        </div>
-
-        <div class="card p-4">
-          <div class="flex items-center gap-2 mb-3">
-            <span>⏱️</span><h2 class="font-semibold">Timer</h2>
-          </div>
-          <div id="timer-empty" class="text-sm text-[color:var(--muted)]">Wähle eine Routine und starte den Timer.</div>
-          <div id="timer-ui" class="hidden space-y-3">
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-sm text-[color:var(--muted)]">Aktuell</p>
-                <p id="timer-current" class="font-semibold truncate"></p>
-                <p id="timer-step" class="text-xs text-[color:var(--muted)]"></p>
-              </div>
-              <div id="timer-remaining" class="text-4xl font-bold tabular-nums">0s</div>
+        <div id="timer-empty" class="text-sm text-[color:var(--muted)]">Wähle eine Routine und starte den Timer.</div>
+        <div id="timer-ui" class="hidden space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm text-[color:var(--muted)]">Aktuell</p>
+              <p id="timer-current" class="font-semibold text-lg"></p>
+              <p id="timer-step" class="text-xs text-[color:var(--muted)]"></p>
             </div>
-            <div id="timer-video" class="aspect-video hidden"></div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button id="btnToggle" class="btn">▶️ Start</button>
-              <button id="btnReset" class="btn">🔁 Reset</button>
-            </div>
+            <div id="timer-remaining" class="text-5xl font-bold tabular-nums">0s</div>
+          </div>
+          <div id="timer-video" class="aspect-video hidden"></div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btnToggle" class="btn">▶️ Start</button>
+            <button id="btnReset" class="btn">🔁 Reset</button>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   </main>
 
+  <!-- Filter Drawer (rechts) -->
+  <div id="backdrop" class="backdrop"></div>
+  <aside id="drawer" class="drawer">
+    <div class="p-4 flex items-center justify-between border-b border-[color:var(--border)]">
+      <div class="flex items-center gap-2"><span>🧰</span><h2 class="font-semibold">Filter</h2></div>
+      <button id="btnFilterClose" class="btn">✖️</button>
+    </div>
+    <div class="p-4 space-y-5">
+      <div>
+        <p class="text-sm mb-2 text-[color:var(--muted)]">Muskelgruppen</p>
+        <div id="filter-groups" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div>
+        <p class="text-sm mb-2 text-[color:var(--muted)]">Schwierigkeit</p>
+        <div id="filter-diff" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div>
+        <p class="text-sm mb-2 text-[color:var(--muted)]">Equipment</p>
+        <div id="filter-equip" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div class="pt-2">
+        <button id="btnClearFilters" class="btn">🧹 Filter zurücksetzen</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Modal: Neue Übung -->
   <dialog id="modal" class="w-full max-w-xl rounded-2xl p-0 border border-[color:var(--border)] shadow-xl bg-[color:var(--card)] text-[color:var(--text)]">
     <form method="dialog" class="p-4 space-y-4">
       <div class="flex items-center justify-between">
@@ -159,23 +168,29 @@
     </form>
   </dialog>
 
-  <footer class="container py-8 text-center text-xs text-[color:var(--muted)]">
+  <footer class="max-w-[1600px] mx-auto px-4 py-8 text-center text-xs text-[color:var(--muted)]">
     ⚡️ Offlinefähig & installierbar. Daten bleiben lokal (localStorage). – Für Markus
   </footer>
 
-  <script>
-    const THEME_KEY = 'markus_theme';
-    const LAYOUT_KEY = 'markus_layout';
-    function applyTheme(v){ document.documentElement.setAttribute('data-theme', v); }
-    function applyLayout(v){ document.documentElement.setAttribute('data-layout', v); }
-    function getTheme(){ return localStorage.getItem(THEME_KEY) || 'light'; }
-    function setTheme(v){ localStorage.setItem(THEME_KEY, v); applyTheme(v); }
-    function getLayout(){ return localStorage.getItem(LAYOUT_KEY) || 'normal'; }
-    function setLayout(v){ localStorage.setItem(LAYOUT_KEY, v); applyLayout(v); }
-    applyTheme(getTheme()); applyLayout(getLayout());
-    document.getElementById('btnTheme').onclick = () => setTheme(getTheme()==='light' ? 'dark' : 'light');
-    document.getElementById('btnLayout').onclick = () => setLayout(getLayout()==='normal' ? 'wide' : 'normal');
+  <div id="backdropClickCatcher"></div>
 
+  <script>
+    // ----- Theme toggle -----
+    const THEME_KEY = 'markus_theme';
+    function applyTheme(v){ document.documentElement.setAttribute('data-theme', v); }
+    function getTheme(){ return localStorage.getItem(THEME_KEY) || 'dark'; }
+    function setTheme(v){ localStorage.setItem(THEME_KEY, v); applyTheme(v); }
+    applyTheme(getTheme());
+    document.getElementById('btnTheme').onclick = () => setTheme(getTheme()==='light' ? 'dark' : 'light');
+
+    // ----- Filter Drawer -----
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('backdrop');
+    document.getElementById('btnFilterOpen').onclick = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
+    document.getElementById('btnFilterClose').onclick = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
+    backdrop.onclick = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
+
+    // ----- Data & Storage -----
     const LS_EX = 'markus_workout_exercises_v1';
     const LS_RT = 'markus_workout_routines_v1';
 
@@ -205,12 +220,15 @@
       ]},
     ];
 
-    function load(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; } }
+    function load(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
+    }
     function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
     let exercises = load(LS_EX, DEFAULT_EXERCISES);
     let routines  = load(LS_RT, DEFAULT_ROUTINES);
 
+    // ----- UI Refs -----
     const elSearch = document.getElementById('search');
     const elList   = document.getElementById('exercise-list');
     const elCount  = document.getElementById('exercise-count');
@@ -224,16 +242,28 @@
 
     const filters = { groups: new Set(), difficulty: new Set(), equipment: new Set() };
 
-    function chip(label, active, onClick) { const b = document.createElement('button'); b.className = 'chip' + (active ? ' active' : ''); b.textContent = label; b.onclick = onClick; return b; }
+    function chip(label, active, onClick) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (active ? ' active' : '');
+      b.textContent = label;
+      b.onclick = onClick;
+      return b;
+    }
 
     function renderFilters() {
       const gRoot = document.getElementById('filter-groups');
       const dRoot = document.getElementById('filter-diff');
       const eRoot = document.getElementById('filter-equip');
       gRoot.innerHTML = ''; dRoot.innerHTML = ''; eRoot.innerHTML = '';
+
       groupOptions.forEach(g => gRoot.appendChild(chip(g, filters.groups.has(g), () => { toggleFilter('groups', g); })));
       diffOptions.forEach(d => dRoot.appendChild(chip(d, filters.difficulty.has(d), () => { toggleFilter('difficulty', d); })));
       equipOptions().forEach(e => eRoot.appendChild(chip(e, filters.equipment.has(e), () => { toggleFilter('equipment', e); })));
+    }
+
+    function clearFilters() {
+      filters.groups.clear(); filters.difficulty.clear(); filters.equipment.clear();
+      renderExercises(); renderFilters();
     }
 
     function toggleFilter(key, val) {
@@ -266,10 +296,11 @@
       elCount.textContent = `(${items.length})`;
       elList.innerHTML = '';
       items.forEach(e => {
-        const card = document.createElement('div'); card.className = 'card p-4 h-full flex flex-col gap-3';
-        const top = document.createElement('div'); top.className = 'flex items-start justify-between gap-2';
+        const card = document.createElement('div'); card.className = 'card p-5 h-full flex flex-col gap-3';
+        const top = document.createElement('div'); top.className = 'flex items-start justify-between gap-3';
         const meta = document.createElement('div'); meta.className = 'min-w-0';
-        meta.innerHTML = `<h3 class="font-semibold text-lg truncate">${e.name}</h3><p class="text-sm text-[color:var(--muted)]">${e.groups.join(' · ')} · ${e.difficulty} · ${e.equipment}</p>`;
+        meta.innerHTML = `<h3 class="font-semibold text-xl leading-6 break-words">${e.name}</h3>
+          <p class="text-sm text-[color:var(--muted)]">${e.groups.join(' · ')} · ${e.difficulty} · ${e.equipment}</p>`;
         const btns = document.createElement('div'); btns.className = 'flex items-center gap-2 flex-wrap justify-end';
         const bVideo = document.createElement('button'); bVideo.className = 'btn'; bVideo.textContent = '▶️ Video';
         const bDel = document.createElement('button'); bDel.className = 'btn btn-danger'; bDel.textContent = '🗑️ Löschen';
@@ -312,6 +343,7 @@
       });
     }
 
+    // ----- Routines & Timer -----
     const elRoutines = document.getElementById('routine-list');
     const elTimerEmpty = document.getElementById('timer-empty');
     const elTimerUI = document.getElementById('timer-ui');
@@ -338,7 +370,7 @@
 
     function startRoutine(r) {
       activeRoutine = r; timerIdx = 0; remaining = r.blocks[0]?.secs || 0; running = true;
-      elTimerEmpty.classList.add('hidden'); elTimerUI.classList.remove('hidden');
+      document.getElementById('timer-empty').classList.add('hidden'); document.getElementById('timer-ui').classList.remove('hidden');
       elBtnToggle.textContent = '⏸️ Pause';
       updateTimerUI(); startTick();
     }
@@ -379,6 +411,7 @@
       elTimerCurrent.textContent = isExercise ? (exercises.find(e => e.id === blk.exerciseId)?.name || 'Übung') : 'Pause';
       elTimerStep.textContent = `Schritt ${timerIdx + 1} / ${activeRoutine.blocks.length}`;
       elTimerRemaining.textContent = Math.max(0, remaining) + 's';
+
       elTimerVideo.innerHTML = ''; elTimerVideo.classList.add('hidden');
       if (isExercise) {
         const ex = exercises.find(e => e.id === blk.exerciseId);
@@ -396,6 +429,7 @@
     };
     elBtnReset.onclick = resetTimer;
 
+    // ----- Add Exercise Modal -----
     const modal = document.getElementById('modal');
     const modalClose = document.getElementById('modalClose');
     const fName = document.getElementById('f-name');
@@ -440,6 +474,7 @@
       exercises.push(ex); save(LS_EX, exercises); renderExercises(); renderFilters(); modal.close();
     };
 
+    // ----- Import/Export -----
     document.getElementById('btnExport').onclick = () => {
       const payload = { exercises, routines };
       const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -462,8 +497,14 @@
       e.target.value = '';
     };
 
+    // ----- Search -----
+    document.getElementById('search').oninput = renderExercises;
+    document.getElementById('btnClearFilters').onclick = clearFilters;
+
+    // ----- Init -----
     renderFilters(); renderExercises(); renderRoutines();
 
+    // ----- PWA: Service Worker -----
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js');
