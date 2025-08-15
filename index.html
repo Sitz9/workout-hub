@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markus' Workout Hub</title>
+  <meta name="description" content="Dein schneller Workout-Guide mit Videos, Timer und Routinen.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#111111">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-startup-image" href="icons/splash-1170x2532.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Tailwind via CDN (no build step) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body { height: 100%; background: #fafafa; }
+    .card { border-radius: 1.25rem; border: 1px solid #e5e7eb; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:1rem; padding:.5rem 1rem; font-weight:600; border:1px solid #e5e7eb; }
+    .btn:hover { background:#f9fafb; }
+    .btn-primary { background:#111; color:#fff; border-color:#111; }
+    .btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .chip { padding:.375rem .75rem; border-radius:999px; border:1px solid #e5e7eb; font-size:.875rem; }
+    .chip.active { background:#111; color:#fff; border-color:#111; }
+    .aspect-video { position: relative; padding-bottom: 56.25%; height: 0; }
+    .aspect-video iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; border-radius: .75rem; }
+  </style>
+</head>
+<body class="min-h-full">
+  <header class="sticky top-0 z-30 backdrop-blur bg-white/90 border-b">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-black text-white">🏋️</span>
+        <h1 class="text-xl md:text-2xl font-bold">Markus' Workout Hub</h1>
+        <span class="text-xs ml-2 rounded-full bg-gray-100 px-2 py-1">Videos · Timer · Routinen</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="relative">
+          <input id="search" placeholder="Suche Übungen/Equipment..." class="pl-3 pr-3 py-2 rounded-xl border w-56 md:w-72 focus:outline-none focus:ring-2 focus:ring-black" />
+        </label>
+        <button id="btnExport" class="btn">⬇️ Export</button>
+        <label class="btn cursor-pointer">⬆️ Import
+          <input id="fileImport" type="file" accept="application/json" class="hidden">
+        </label>
+        <button id="btnAdd" class="btn btn-primary">＋ Übung</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-11 gap-6">
+    <!-- Filter -->
+    <section class="card p-4 lg:col-span-3">
+      <div class="flex items-center gap-2 mb-3">
+        <span>🧰</span><h2 class="font-semibold">Filter</h2>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <p class="text-sm mb-2">Muskelgruppen</p>
+          <div id="filter-groups" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <p class="text-sm mb-2">Schwierigkeit</p>
+          <div id="filter-diff" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <p class="text-sm mb-2">Equipment</p>
+          <div id="filter-equip" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Übungen -->
+    <section class="lg:col-span-5 space-y-3">
+      <h2 class="font-semibold">Übungen <span id="exercise-count" class="text-gray-500"></span></h2>
+      <div id="exercise-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- Routinen & Timer -->
+    <section class="lg:col-span-3 space-y-4">
+      <div class="card p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span>🗂️</span><h2 class="font-semibold">Schnell-Routinen</h2>
+        </div>
+        <div id="routine-list" class="space-y-2"></div>
+      </div>
+
+      <div class="card p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span>⏱️</span><h2 class="font-semibold">Timer</h2>
+        </div>
+        <div id="timer-empty" class="text-sm text-gray-600">Wähle eine Routine und starte den Timer.</div>
+        <div id="timer-ui" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">Aktuell</p>
+              <p id="timer-current" class="font-semibold"></p>
+              <p id="timer-step" class="text-xs text-gray-500"></p>
+            </div>
+            <div id="timer-remaining" class="text-4xl font-bold tabular-nums">0s</div>
+          </div>
+          <div id="timer-video" class="aspect-video hidden"></div>
+          <div class="flex items-center gap-2">
+            <button id="btnToggle" class="btn">▶️ Start</button>
+            <button id="btnReset" class="btn">🔁 Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <dialog id="modal" class="w-full max-w-xl rounded-2xl p-0 border shadow-xl">
+    <form method="dialog" class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2"><span>➕</span><h3 class="font-semibold">Neue Übung</h3></div>
+        <button id="modalClose" class="btn">✖️</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="text-sm">Name
+          <input id="f-name" class="mt-1 w-full rounded-xl border px-3 py-2" placeholder="z.B. Plank">
+        </label>
+        <label class="text-sm">Schwierigkeit
+          <select id="f-diff" class="mt-1 w-full rounded-xl border px-3 py-2">
+            <option>Einsteiger</option>
+            <option>Fortgeschritten</option>
+            <option>Profi</option>
+          </select>
+        </label>
+        <fieldset class="sm:col-span-2">
+          <p class="text-sm mb-1">Muskelgruppen</p>
+          <div id="f-groups" class="flex flex-wrap gap-2"></div>
+        </fieldset>
+        <label class="text-sm sm:col-span-2">Equipment
+          <input id="f-equip" class="mt-1 w-full rounded-xl border px-3 py-2" placeholder="z.B. Keine / Kurzhanteln / Band">
+        </label>
+        <label class="text-sm sm:col-span-2">Video-Link (YouTube/Vimeo)
+          <input id="f-video" class="mt-1 w-full rounded-xl border px-3 py-2" placeholder="https://www.youtube.com/watch?v=...">
+        </label>
+        <label class="text-sm sm:col-span-2">Cues (je Zeile eine)
+          <textarea id="f-cues" class="mt-1 w-full rounded-xl border px-3 py-2" rows="3" placeholder="Atme ruhig&#10;Rücken neutral&#10;Knie stabil"></textarea>
+        </label>
+        <label class="text-sm sm:col-span-2">Ablauf-Schritte (je Zeile eine)
+          <textarea id="f-steps" class="mt-1 w-full rounded-xl border px-3 py-2" rows="4" placeholder="Ausgangsposition einnehmen&#10;Kontrolliert absenken&#10;Explosiv hochdrücken"></textarea>
+        </label>
+      </div>
+      <div class="flex justify-end">
+        <button id="f-save" class="btn btn-primary" value="default">💾 Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="max-w-6xl mx-auto px-4 py-8 text-center text-xs text-gray-500">
+    ⚡️ Offlinefähig & installierbar. Daten bleiben lokal (localStorage). – Für Markus
+  </footer>
+
+  <script>
+    // ----- Data & Storage -----
+    const LS_EX = 'markus_workout_exercises_v1';
+    const LS_RT = 'markus_workout_routines_v1';
+
+    const DEFAULT_EXERCISES = [
+      { id:'squat', name:'Kniebeuge (Bodyweight)', groups:['Beine','Core'], difficulty:'Einsteiger', equipment:'Keine', videoUrl:'', cues:['Fersen am Boden','Knie folgen den Zehen','Brust stolz'], steps:['Stand schulterbreit, Füße leicht nach außen.','Hüfte nach hinten, dann Knie beugen, bis Oberschenkel mind. parallel.','Druck über die Fersen nach oben, Gesäß anspannen.'] },
+      { id:'pushup', name:'Liegestütz', groups:['Arme','Brust','Core'], difficulty:'Einsteiger', equipment:'Keine', videoUrl:'', cues:['Körper in Linie','Ellbogen ~45°','Bauch fest'], steps:['Hände unter den Schultern, Körperspannung.','Kontrolliert absenken bis Brust kurz vor Boden.','Kraftvoll nach oben drücken.'] },
+      { id:'hiphinge', name:'Hip Hinge (Hüftbeuge)', groups:['Rücken','Beine','Core'], difficulty:'Einsteiger', equipment:'Keine / Hantel optional', videoUrl:'', cues:['Rücken neutral','Hüfte nach hinten','Gewicht nah am Körper'], steps:['Leichter Stand, Knie sanft beugen.','Hüfte weit nach hinten schieben.','Bei Dehnung wieder aufrichten.'] },
+      { id:'row', name:'Ruderzug vorgebeugt (mit Band)', groups:['Rücken','Arme'], difficulty:'Einsteiger', equipment:'Widerstandsband', videoUrl:'', cues:['Schultern unten','Ellbogen am Körper','Oben kurz halten'], steps:['Band fixieren, Enden greifen.','Oberkörper leicht vor, Bauch fest.','Ellbogen zurückziehen, Schulterblätter zusammen.'] },
+      { id:'split_squat', name:'Bulgarian Split Squat', groups:['Beine','Core'], difficulty:'Fortgeschritten', equipment:'Bank/Stuhl', videoUrl:'', cues:['Vorderes Knie stabil','Oberkörper aufrecht','Ferse drückt'], steps:['Rückenfuß erhöht auf Bank.','Absenken bis vorderer Oberschenkel parallel.','Über die Ferse nach oben.'] },
+    ];
+
+    const DEFAULT_ROUTINES = [
+      { id:'pre_shower_legs', name:'Vor-der-Dusche: Beine 12 Min', description:'Kurz & knackig für die Beine.', blocks:[
+        {type:'exercise', exerciseId:'squat', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'split_squat', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'hiphinge', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'squat', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'split_squat', secs:40},{type:'rest',secs:60},
+        {type:'exercise', exerciseId:'hiphinge', secs:40},{type:'rest',secs:60},
+      ]},
+      { id:'pre_shower_arms_back', name:'Vor-der-Dusche: Arme & Rücken 13 Min', description:'Push/Pull-Mix mit Core.', blocks:[
+        {type:'exercise', exerciseId:'pushup', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'row', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'pushup', secs:40},{type:'rest',secs:20},
+        {type:'exercise', exerciseId:'row', secs:40},{type:'rest',secs:60},
+        {type:'exercise', exerciseId:'hiphinge', secs:40},{type:'rest',secs:60},
+      ]},
+    ];
+
+    function load(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
+    }
+    function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+    let exercises = load(LS_EX, DEFAULT_EXERCISES);
+    let routines  = load(LS_RT, DEFAULT_ROUTINES);
+
+    // ----- UI Refs -----
+    const elSearch = document.getElementById('search');
+    const elList   = document.getElementById('exercise-list');
+    const elCount  = document.getElementById('exercise-count');
+    const elBtnAdd = document.getElementById('btnAdd');
+    const elBtnExport = document.getElementById('btnExport');
+    const elFileImport = document.getElementById('fileImport');
+
+    const groupOptions = ['Beine','Arme','Rücken','Brust','Core'];
+    const diffOptions  = ['Einsteiger','Fortgeschritten','Profi'];
+    const equipOptions = () => [...new Set(exercises.map(e => e.equipment))];
+
+    const filters = { groups: new Set(), difficulty: new Set(), equipment: new Set() };
+
+    function chip(label, active, onClick) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (active ? ' active' : '');
+      b.textContent = label;
+      b.onclick = onClick;
+      return b;
+    }
+
+    function renderFilters() {
+      const gRoot = document.getElementById('filter-groups');
+      const dRoot = document.getElementById('filter-diff');
+      const eRoot = document.getElementById('filter-equip');
+      gRoot.innerHTML = ''; dRoot.innerHTML = ''; eRoot.innerHTML = '';
+
+      groupOptions.forEach(g => gRoot.appendChild(chip(g, filters.groups.has(g), () => { toggleFilter('groups', g); })));
+      diffOptions.forEach(d => dRoot.appendChild(chip(d, filters.difficulty.has(d), () => { toggleFilter('difficulty', d); })));
+      equipOptions().forEach(e => eRoot.appendChild(chip(e, filters.equipment.has(e), () => { toggleFilter('equipment', e); })));
+    }
+
+    function toggleFilter(key, val) {
+      const set = filters[key];
+      set.has(val) ? set.delete(val) : set.add(val);
+      renderExercises();
+      renderFilters(); // to refresh active state
+    }
+
+    function toEmbed(url) {
+      if (!url) return '';
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes('youtube.com')) { const v = u.searchParams.get('v'); if (v) return `https://www.youtube.com/embed/${v}`; }
+        if (u.hostname === 'youtu.be') { return `https://www.youtube.com/embed/${u.pathname.replace('/', '')}`; }
+        if (u.hostname.includes('vimeo.com')) { const id = u.pathname.split('/').filter(Boolean).pop(); if (id) return `https://player.vimeo.com/video/${id}`; }
+        return url;
+      } catch { return url; }
+    }
+
+    function renderExercises() {
+      const q = elSearch.value.trim().toLowerCase();
+      const items = exercises.filter(e => {
+        if (q && !( (e.name + ' ' + e.groups.join(' ') + ' ' + e.equipment).toLowerCase().includes(q) )) return false;
+        if (filters.groups.size && !e.groups.some(g => filters.groups.has(g))) return false;
+        if (filters.difficulty.size && !filters.difficulty.has(e.difficulty)) return false;
+        if (filters.equipment.size && !filters.equipment.has(e.equipment)) return false;
+        return true;
+      });
+      elCount.textContent = `(${items.length})`;
+      elList.innerHTML = '';
+      items.forEach(e => {
+        const card = document.createElement('div'); card.className = 'card p-4 h-full flex flex-col gap-3';
+        const top = document.createElement('div'); top.className = 'flex items-start justify-between gap-2';
+        top.innerHTML = `<div><h3 class="font-semibold text-lg">${e.name}</h3><p class="text-sm text-gray-600">${e.groups.join(' · ')} · ${e.difficulty} · ${e.equipment}</p></div>`;
+        const btns = document.createElement('div'); btns.className = 'flex items-center gap-2';
+        const bVideo = document.createElement('button'); bVideo.className = 'btn'; bVideo.textContent = '▶️ Video';
+        const bDel = document.createElement('button'); bDel.className = 'btn btn-danger'; bDel.textContent = '🗑️ Löschen';
+        btns.append(bVideo, bDel); top.appendChild(btns); card.appendChild(top);
+
+        const details = document.createElement('div'); details.className = 'space-y-3 hidden';
+        const vidWrap = document.createElement('div');
+        if (e.videoUrl) {
+          vidWrap.className = 'aspect-video';
+          vidWrap.innerHTML = `<iframe src="${e.videoUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen title="${e.name}"></iframe>`;
+        } else {
+          vidWrap.className = 'p-4 rounded-xl bg-gray-50 border text-sm';
+          vidWrap.textContent = 'Kein Video hinterlegt. Nutze „＋ Übung“ und füge einen Link hinzu.';
+        }
+        details.appendChild(vidWrap);
+
+        const cues = document.createElement('div');
+        cues.innerHTML = `<p class="text-sm font-medium mb-1">Cues</p>`;
+        const ul = document.createElement('ul'); ul.className = 'list-disc ml-5 text-sm text-gray-700';
+        (e.cues||[]).forEach(c => { const li=document.createElement('li'); li.textContent = c; ul.appendChild(li); });
+        cues.appendChild(ul); details.appendChild(cues);
+
+        const steps = document.createElement('div');
+        steps.innerHTML = `<p class="text-sm font-medium mb-1">Ablauf</p>`;
+        const ol = document.createElement('ol'); ol.className = 'list-decimal ml-5 text-sm text-gray-700';
+        (e.steps||[]).forEach(s => { const li=document.createElement('li'); li.textContent = s; ol.appendChild(li); });
+        steps.appendChild(ol); details.appendChild(steps);
+        card.appendChild(details);
+
+        let open = false;
+        bVideo.onclick = () => { open = !open; details.classList.toggle('hidden', !open); };
+        bDel.onclick = () => {
+          if (!confirm('Übung wirklich löschen?')) return;
+          exercises = exercises.filter(x => x.id !== e.id);
+          // remove from routines
+          routines = routines.map(r => ({...r, blocks: r.blocks.filter(b => b.type !== 'exercise' || b.exerciseId !== e.id)}));
+          save(LS_EX, exercises); save(LS_RT, routines); renderExercises(); renderRoutines(); renderFilters();
+        };
+
+        elList.appendChild(card);
+      });
+    }
+
+    // ----- Routines & Timer -----
+    const elRoutines = document.getElementById('routine-list');
+    const elTimerEmpty = document.getElementById('timer-empty');
+    const elTimerUI = document.getElementById('timer-ui');
+    const elTimerCurrent = document.getElementById('timer-current');
+    const elTimerStep = document.getElementById('timer-step');
+    const elTimerRemaining = document.getElementById('timer-remaining');
+    const elTimerVideo = document.getElementById('timer-video');
+    const elBtnToggle = document.getElementById('btnToggle');
+    const elBtnReset = document.getElementById('btnReset');
+
+    let activeRoutine = null, timerIdx = 0, remaining = 0, tick = null, running = false;
+
+    function renderRoutines() {
+      elRoutines.innerHTML = '';
+      routines.forEach(r => {
+        const row = document.createElement('div'); row.className = 'flex items-center justify-between p-3 rounded-xl border';
+        const info = document.createElement('div');
+        info.innerHTML = `<p class="font-medium">${r.name}</p><p class="text-xs text-gray-600">${r.description||''}</p>`;
+        const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = '▶️ Start';
+        btn.onclick = () => startRoutine(r);
+        row.append(info, btn); elRoutines.appendChild(row);
+      });
+    }
+
+    function startRoutine(r) {
+      activeRoutine = r; timerIdx = 0; remaining = r.blocks[0]?.secs || 0; running = true;
+      elTimerEmpty.classList.add('hidden'); elTimerUI.classList.remove('hidden');
+      elBtnToggle.textContent = '⏸️ Pause';
+      updateTimerUI(); startTick();
+    }
+
+    function startTick() {
+      stopTick();
+      tick = setInterval(() => {
+        if (!running) return;
+        remaining -= 1;
+        if (remaining <= 0) nextBlock();
+        updateTimerUI();
+      }, 1000);
+    }
+    function stopTick(){ if (tick) { clearInterval(tick); tick = null; } }
+
+    function nextBlock() {
+      timerIdx += 1;
+      if (!activeRoutine || timerIdx >= activeRoutine.blocks.length) {
+        running = false; stopTick(); remaining = 0;
+        elBtnToggle.textContent = '▶️ Start';
+        return;
+      }
+      const blk = activeRoutine.blocks[timerIdx];
+      remaining = blk.secs;
+    }
+
+    function resetTimer() {
+      if (!activeRoutine) return;
+      timerIdx = 0; remaining = activeRoutine.blocks[0]?.secs || 0; running = false; stopTick();
+      elBtnToggle.textContent = '▶️ Start';
+      updateTimerUI();
+    }
+
+    function updateTimerUI() {
+      if (!activeRoutine) return;
+      const blk = activeRoutine.blocks[timerIdx];
+      const isExercise = blk?.type === 'exercise';
+      elTimerCurrent.textContent = isExercise ? (exercises.find(e => e.id === blk.exerciseId)?.name || 'Übung') : 'Pause';
+      elTimerStep.textContent = `Schritt ${timerIdx + 1} / ${activeRoutine.blocks.length}`;
+      elTimerRemaining.textContent = Math.max(0, remaining) + 's';
+
+      // Video
+      elTimerVideo.innerHTML = ''; elTimerVideo.classList.add('hidden');
+      if (isExercise) {
+        const ex = exercises.find(e => e.id === blk.exerciseId);
+        if (ex && ex.videoUrl) {
+          elTimerVideo.classList.remove('hidden');
+          const wrap = document.createElement('div'); wrap.className = 'aspect-video';
+          wrap.innerHTML = `<iframe src="${ex.videoUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+          elTimerVideo.appendChild(wrap);
+        }
+      }
+    }
+
+    elBtnToggle.onclick = () => { if (!activeRoutine) return;
+      running = !running; elBtnToggle.textContent = running ? '⏸️ Pause' : '▶️ Start'; if (running) startTick();
+    };
+    elBtnReset.onclick = resetTimer;
+
+    // ----- Add Exercise Modal -----
+    const modal = document.getElementById('modal');
+    const modalClose = document.getElementById('modalClose');
+    const fName = document.getElementById('f-name');
+    const fDiff = document.getElementById('f-diff');
+    const fGroups = document.getElementById('f-groups');
+    const fEquip = document.getElementById('f-equip');
+    const fVideo = document.getElementById('f-video');
+    const fCues = document.getElementById('f-cues');
+    const fSteps = document.getElementById('f-steps');
+    const fSave = document.getElementById('f-save');
+
+    function renderGroupChipsForForm() {
+      fGroups.innerHTML = '';
+      const selected = new Set();
+      groupOptions.forEach(g => {
+        const b = document.createElement('button');
+        b.className = 'chip'; b.textContent = g;
+        b.onclick = (ev) => { ev.preventDefault(); if (selected.has(g)) { selected.delete(g); b.classList.remove('active'); } else { selected.add(g); b.classList.add('active'); } };
+        fGroups.appendChild(b);
+      });
+      return () => Array.from(selected);
+    }
+    let getSelectedGroups = renderGroupChipsForForm();
+
+    elBtnAdd.onclick = () => { fName.value=''; fEquip.value='Keine'; fVideo.value=''; fCues.value=''; fSteps.value=''; fDiff.value='Einsteiger'; getSelectedGroups = renderGroupChipsForForm(); modal.showModal(); };
+    modalClose.onclick = (e) => { e.preventDefault(); modal.close(); };
+
+    fSave.onclick = (e) => {
+      e.preventDefault();
+      const name = fName.value.trim(); if (!name) { alert('Bitte Namen eingeben'); return; }
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,40);
+      if (exercises.some(x => x.id === id)) { alert('Diese Übung existiert bereits.'); return; }
+      const ex = {
+        id, name,
+        groups: getSelectedGroups(),
+        difficulty: fDiff.value,
+        equipment: fEquip.value || 'Keine',
+        videoUrl: toEmbed(fVideo.value.trim()),
+        cues: fCues.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+        steps: fSteps.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+      };
+      exercises.push(ex); save(LS_EX, exercises); renderExercises(); renderFilters(); modal.close();
+    };
+
+    // ----- Import/Export -----
+    elBtnExport.onclick = () => {
+      const payload = { exercises, routines };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'markus_workouts.json'; a.click(); URL.revokeObjectURL(url);
+    };
+    elFileImport.onchange = (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (Array.isArray(data.exercises) && Array.isArray(data.routines)) {
+            exercises = data.exercises; routines = data.routines; save(LS_EX, exercises); save(LS_RT, routines);
+            renderExercises(); renderRoutines(); renderFilters();
+          } else alert('Ungültige Datei');
+        } catch { alert('Konnte JSON nicht lesen'); }
+      };
+      reader.readAsText(f);
+      e.target.value = '';
+    };
+
+    // ----- Search -----
+    elSearch.oninput = renderExercises;
+
+    // ----- Init -----
+    renderFilters(); renderExercises(); renderRoutines();
+
+    // ----- PWA: Service Worker -----
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js');
+      });
+    }
+  </script>
+</body>
+</html>
