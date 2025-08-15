@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Markus' Workout Hub</title>
   <meta name="description" content="Dein schneller Workout-Guide mit Videos, Timer und Routinen.">
   <link rel="manifest" href="manifest.webmanifest">
@@ -11,72 +11,79 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1170x2532.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <!-- Tailwind via CDN (no build step) -->
+  <!-- Tailwind via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    html, body { height: 100%; background: #fafafa; }
-    .card { border-radius: 1.25rem; border: 1px solid #e5e7eb; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:1rem; padding:.5rem 1rem; font-weight:600; border:1px solid #e5e7eb; }
-    .btn:hover { background:#f9fafb; }
+    :root { --bg:#fafafa; --card:#fff; --border:#e5e7eb; --text:#111; --muted:#6b7280;}
+    [data-theme="dark"] { --bg:#0b0b0c; --card:#141416; --border:#232327; --text:#f2f2f2; --muted:#a1a1aa;}
+    html, body { height:100%; background:var(--bg); color:var(--text); }
+    .card { border-radius: 1.25rem; border:1px solid var(--border); background:var(--card); box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:1rem; padding:.5rem 1rem; font-weight:600; border:1px solid var(--border); white-space:nowrap; flex:0 0 auto; }
+    .btn:hover { background:rgba(0,0,0,.03); }
     .btn-primary { background:#111; color:#fff; border-color:#111; }
     .btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
-    .chip { padding:.375rem .75rem; border-radius:999px; border:1px solid #e5e7eb; font-size:.875rem; }
+    .chip { padding:.375rem .75rem; border-radius:999px; border:1px solid var(--border); font-size:.875rem; }
     .chip.active { background:#111; color:#fff; border-color:#111; }
-    .aspect-video { position: relative; padding-bottom: 56.25%; height: 0; }
-    .aspect-video iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; border-radius: .75rem; }
+    .chip:focus { outline:2px solid #111; outline-offset:2px; }
+    .aspect-video { position: relative; padding-bottom:56.25%; height:0; }
+    .aspect-video iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; border-radius:.75rem; }
+    .safe { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    .grid-app { grid-template-columns: 1fr; }
+    @media (min-width:1024px){ .grid-app { grid-template-columns: 3fr 5fr 3fr; } }
   </style>
 </head>
-<body class="min-h-full">
-  <header class="sticky top-0 z-30 backdrop-blur bg-white/90 border-b">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
+<body class="min-h-full safe">
+  <header class="sticky top-0 z-30 backdrop-blur bg-[color:var(--card)]/90 border-b border-[color:var(--border)]">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap gap-2 items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
         <span class="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-black text-white">🏋️</span>
-        <h1 class="text-xl md:text-2xl font-bold">Markus' Workout Hub</h1>
-        <span class="text-xs ml-2 rounded-full bg-gray-100 px-2 py-1">Videos · Timer · Routinen</span>
+        <h1 class="text-xl md:text-2xl font-bold truncate">Markus' Workout Hub</h1>
+        <span class="hidden sm:inline text-xs ml-2 rounded-full bg-gray-100/50 px-2 py-1">Videos · Timer · Routinen</span>
       </div>
-      <div class="flex items-center gap-2">
-        <label class="relative">
-          <input id="search" placeholder="Suche Übungen/Equipment..." class="pl-3 pr-3 py-2 rounded-xl border w-56 md:w-72 focus:outline-none focus:ring-2 focus:ring-black" />
+      <div class="flex items-center gap-2 flex-wrap">
+        <label class="relative order-2 sm:order-none">
+          <input id="search" placeholder="Suche Übungen/Equipment..." class="pl-3 pr-3 py-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] w-56 md:w-72 focus:outline-none focus:ring-2 focus:ring-black" />
         </label>
         <button id="btnExport" class="btn">⬇️ Export</button>
         <label class="btn cursor-pointer">⬆️ Import
           <input id="fileImport" type="file" accept="application/json" class="hidden">
         </label>
         <button id="btnAdd" class="btn btn-primary">＋ Übung</button>
+        <button id="btnTheme" class="btn" title="Dark/Light">🌓</button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-11 gap-6">
+  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-app gap-6">
     <!-- Filter -->
-    <section class="card p-4 lg:col-span-3">
+    <section class="card p-4">
       <div class="flex items-center gap-2 mb-3">
         <span>🧰</span><h2 class="font-semibold">Filter</h2>
       </div>
       <div class="space-y-4">
         <div>
-          <p class="text-sm mb-2">Muskelgruppen</p>
+          <p class="text-sm mb-2 text-[color:var(--muted)]">Muskelgruppen</p>
           <div id="filter-groups" class="flex flex-wrap gap-2"></div>
         </div>
         <div>
-          <p class="text-sm mb-2">Schwierigkeit</p>
+          <p class="text-sm mb-2 text-[color:var(--muted)]">Schwierigkeit</p>
           <div id="filter-diff" class="flex flex-wrap gap-2"></div>
         </div>
         <div>
-          <p class="text-sm mb-2">Equipment</p>
+          <p class="text-sm mb-2 text-[color:var(--muted)]">Equipment</p>
           <div id="filter-equip" class="flex flex-wrap gap-2"></div>
         </div>
       </div>
     </section>
 
     <!-- Übungen -->
-    <section class="lg:col-span-5 space-y-3">
-      <h2 class="font-semibold">Übungen <span id="exercise-count" class="text-gray-500"></span></h2>
+    <section class="space-y-3">
+      <h2 class="font-semibold">Übungen <span id="exercise-count" class="text-[color:var(--muted)]"></span></h2>
       <div id="exercise-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
     </section>
 
     <!-- Routinen & Timer -->
-    <section class="lg:col-span-3 space-y-4">
+    <section class="space-y-4">
       <div class="card p-4">
         <div class="flex items-center gap-2 mb-3">
           <span>🗂️</span><h2 class="font-semibold">Schnell-Routinen</h2>
@@ -88,18 +95,18 @@
         <div class="flex items-center gap-2 mb-3">
           <span>⏱️</span><h2 class="font-semibold">Timer</h2>
         </div>
-        <div id="timer-empty" class="text-sm text-gray-600">Wähle eine Routine und starte den Timer.</div>
+        <div id="timer-empty" class="text-sm text-[color:var(--muted)]">Wähle eine Routine und starte den Timer.</div>
         <div id="timer-ui" class="hidden space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600">Aktuell</p>
-              <p id="timer-current" class="font-semibold"></p>
-              <p id="timer-step" class="text-xs text-gray-500"></p>
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm text-[color:var(--muted)]">Aktuell</p>
+              <p id="timer-current" class="font-semibold truncate"></p>
+              <p id="timer-step" class="text-xs text-[color:var(--muted)]"></p>
             </div>
             <div id="timer-remaining" class="text-4xl font-bold tabular-nums">0s</div>
           </div>
           <div id="timer-video" class="aspect-video hidden"></div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <button id="btnToggle" class="btn">▶️ Start</button>
             <button id="btnReset" class="btn">🔁 Reset</button>
           </div>
@@ -109,7 +116,7 @@
   </main>
 
   <!-- Modal -->
-  <dialog id="modal" class="w-full max-w-xl rounded-2xl p-0 border shadow-xl">
+  <dialog id="modal" class="w-full max-w-xl rounded-2xl p-0 border border-[color:var(--border)] shadow-xl bg-[color:var(--card)] text-[color:var(--text)]">
     <form method="dialog" class="p-4 space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2"><span>➕</span><h3 class="font-semibold">Neue Übung</h3></div>
@@ -117,10 +124,10 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label class="text-sm">Name
-          <input id="f-name" class="mt-1 w-full rounded-xl border px-3 py-2" placeholder="z.B. Plank">
+          <input id="f-name" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2" placeholder="z.B. Plank">
         </label>
         <label class="text-sm">Schwierigkeit
-          <select id="f-diff" class="mt-1 w-full rounded-xl border px-3 py-2">
+          <select id="f-diff" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
             <option>Einsteiger</option>
             <option>Fortgeschritten</option>
             <option>Profi</option>
@@ -131,16 +138,16 @@
           <div id="f-groups" class="flex flex-wrap gap-2"></div>
         </fieldset>
         <label class="text-sm sm:col-span-2">Equipment
-          <input id="f-equip" class="mt-1 w-full rounded-xl border px-3 py-2" placeholder="z.B. Keine / Kurzhanteln / Band">
+          <input id="f-equip" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2" placeholder="z.B. Keine / Kurzhanteln / Band">
         </label>
         <label class="text-sm sm:col-span-2">Video-Link (YouTube/Vimeo)
-          <input id="f-video" class="mt-1 w-full rounded-xl border px-3 py-2" placeholder="https://www.youtube.com/watch?v=...">
+          <input id="f-video" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2" placeholder="https://www.youtube.com/watch?v=...">
         </label>
         <label class="text-sm sm:col-span-2">Cues (je Zeile eine)
-          <textarea id="f-cues" class="mt-1 w-full rounded-xl border px-3 py-2" rows="3" placeholder="Atme ruhig&#10;Rücken neutral&#10;Knie stabil"></textarea>
+          <textarea id="f-cues" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2" rows="3" placeholder="Atme ruhig&#10;Rücken neutral&#10;Knie stabil"></textarea>
         </label>
         <label class="text-sm sm:col-span-2">Ablauf-Schritte (je Zeile eine)
-          <textarea id="f-steps" class="mt-1 w-full rounded-xl border px-3 py-2" rows="4" placeholder="Ausgangsposition einnehmen&#10;Kontrolliert absenken&#10;Explosiv hochdrücken"></textarea>
+          <textarea id="f-steps" class="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2" rows="4" placeholder="Ausgangsposition einnehmen&#10;Kontrolliert absenken&#10;Explosiv hochdrücken"></textarea>
         </label>
       </div>
       <div class="flex justify-end">
@@ -149,11 +156,19 @@
     </form>
   </dialog>
 
-  <footer class="max-w-6xl mx-auto px-4 py-8 text-center text-xs text-gray-500">
+  <footer class="max-w-6xl mx-auto px-4 py-8 text-center text-xs text-[color:var(--muted)]">
     ⚡️ Offlinefähig & installierbar. Daten bleiben lokal (localStorage). – Für Markus
   </footer>
 
   <script>
+    // ----- Theme toggle -----
+    const THEME_KEY = 'markus_theme';
+    function applyTheme(v){ document.documentElement.setAttribute('data-theme', v); }
+    function getTheme(){ return localStorage.getItem(THEME_KEY) || 'light'; }
+    function setTheme(v){ localStorage.setItem(THEME_KEY, v); applyTheme(v); }
+    applyTheme(getTheme());
+    document.getElementById('btnTheme').onclick = () => setTheme(getTheme()==='light' ? 'dark' : 'light');
+
     // ----- Data & Storage -----
     const LS_EX = 'markus_workout_exercises_v1';
     const LS_RT = 'markus_workout_routines_v1';
@@ -229,7 +244,7 @@
       const set = filters[key];
       set.has(val) ? set.delete(val) : set.add(val);
       renderExercises();
-      renderFilters(); // to refresh active state
+      renderFilters(); // refresh active state
     }
 
     function toEmbed(url) {
@@ -257,11 +272,12 @@
       items.forEach(e => {
         const card = document.createElement('div'); card.className = 'card p-4 h-full flex flex-col gap-3';
         const top = document.createElement('div'); top.className = 'flex items-start justify-between gap-2';
-        top.innerHTML = `<div><h3 class="font-semibold text-lg">${e.name}</h3><p class="text-sm text-gray-600">${e.groups.join(' · ')} · ${e.difficulty} · ${e.equipment}</p></div>`;
-        const btns = document.createElement('div'); btns.className = 'flex items-center gap-2';
+        const meta = document.createElement('div'); meta.className = 'min-w-0';
+        meta.innerHTML = `<h3 class="font-semibold text-lg truncate">${e.name}</h3><p class="text-sm text-[color:var(--muted)]">${e.groups.join(' · ')} · ${e.difficulty} · ${e.equipment}</p>`;
+        const btns = document.createElement('div'); btns.className = 'flex items-center gap-2 flex-wrap justify-end';
         const bVideo = document.createElement('button'); bVideo.className = 'btn'; bVideo.textContent = '▶️ Video';
         const bDel = document.createElement('button'); bDel.className = 'btn btn-danger'; bDel.textContent = '🗑️ Löschen';
-        btns.append(bVideo, bDel); top.appendChild(btns); card.appendChild(top);
+        btns.append(bVideo, bDel); top.append(meta, btns); card.append(top);
 
         const details = document.createElement('div'); details.className = 'space-y-3 hidden';
         const vidWrap = document.createElement('div');
@@ -269,30 +285,29 @@
           vidWrap.className = 'aspect-video';
           vidWrap.innerHTML = `<iframe src="${e.videoUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen title="${e.name}"></iframe>`;
         } else {
-          vidWrap.className = 'p-4 rounded-xl bg-gray-50 border text-sm';
+          vidWrap.className = 'p-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm';
           vidWrap.textContent = 'Kein Video hinterlegt. Nutze „＋ Übung“ und füge einen Link hinzu.';
         }
         details.appendChild(vidWrap);
 
         const cues = document.createElement('div');
         cues.innerHTML = `<p class="text-sm font-medium mb-1">Cues</p>`;
-        const ul = document.createElement('ul'); ul.className = 'list-disc ml-5 text-sm text-gray-700';
+        const ul = document.createElement('ul'); ul.className = 'list-disc ml-5 text-sm text-[color:var(--muted)]';
         (e.cues||[]).forEach(c => { const li=document.createElement('li'); li.textContent = c; ul.appendChild(li); });
         cues.appendChild(ul); details.appendChild(cues);
 
         const steps = document.createElement('div');
         steps.innerHTML = `<p class="text-sm font-medium mb-1">Ablauf</p>`;
-        const ol = document.createElement('ol'); ol.className = 'list-decimal ml-5 text-sm text-gray-700';
+        const ol = document.createElement('ol'); ol.className = 'list-decimal ml-5 text-sm text-[color:var(--muted)]';
         (e.steps||[]).forEach(s => { const li=document.createElement('li'); li.textContent = s; ol.appendChild(li); });
         steps.appendChild(ol); details.appendChild(steps);
-        card.appendChild(details);
+        card.append(details);
 
         let open = false;
         bVideo.onclick = () => { open = !open; details.classList.toggle('hidden', !open); };
         bDel.onclick = () => {
           if (!confirm('Übung wirklich löschen?')) return;
           exercises = exercises.filter(x => x.id !== e.id);
-          // remove from routines
           routines = routines.map(r => ({...r, blocks: r.blocks.filter(b => b.type !== 'exercise' || b.exerciseId !== e.id)}));
           save(LS_EX, exercises); save(LS_RT, routines); renderExercises(); renderRoutines(); renderFilters();
         };
@@ -317,9 +332,9 @@
     function renderRoutines() {
       elRoutines.innerHTML = '';
       routines.forEach(r => {
-        const row = document.createElement('div'); row.className = 'flex items-center justify-between p-3 rounded-xl border';
+        const row = document.createElement('div'); row.className = 'flex items-center justify-between p-3 rounded-xl border border-[color:var(--border)]';
         const info = document.createElement('div');
-        info.innerHTML = `<p class="font-medium">${r.name}</p><p class="text-xs text-gray-600">${r.description||''}</p>`;
+        info.innerHTML = `<p class="font-medium">${r.name}</p><p class="text-xs text-[color:var(--muted)]">${r.description||''}</p>`;
         const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = '▶️ Start';
         btn.onclick = () => startRoutine(r);
         row.append(info, btn); elRoutines.appendChild(row);
@@ -403,7 +418,7 @@
     function renderGroupChipsForForm() {
       fGroups.innerHTML = '';
       const selected = new Set();
-      groupOptions.forEach(g => {
+      ['Beine','Arme','Rücken','Brust','Core'].forEach(g => {
         const b = document.createElement('button');
         b.className = 'chip'; b.textContent = g;
         b.onclick = (ev) => { ev.preventDefault(); if (selected.has(g)) { selected.delete(g); b.classList.remove('active'); } else { selected.add(g); b.classList.add('active'); } };
@@ -413,7 +428,7 @@
     }
     let getSelectedGroups = renderGroupChipsForForm();
 
-    elBtnAdd.onclick = () => { fName.value=''; fEquip.value='Keine'; fVideo.value=''; fCues.value=''; fSteps.value=''; fDiff.value='Einsteiger'; getSelectedGroups = renderGroupChipsForForm(); modal.showModal(); };
+    document.getElementById('btnAdd').onclick = () => { fName.value=''; fEquip.value='Keine'; fVideo.value=''; fCues.value=''; fSteps.value=''; fDiff.value='Einsteiger'; getSelectedGroups = renderGroupChipsForForm(); modal.showModal(); };
     modalClose.onclick = (e) => { e.preventDefault(); modal.close(); };
 
     fSave.onclick = (e) => {
